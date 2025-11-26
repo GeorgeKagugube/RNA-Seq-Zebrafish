@@ -9,7 +9,28 @@ source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scri
 
 ### Set the working directory here. This is the path to the GO term/pathway files
 output_dir = '/Users/gwk/Desktop/Thesis Figures/DifferentialGeneExpression'#/MutantUnexposed/Figures'
-setwd('/Users/gwk/Desktop/Thesis Figures')
+setwd('/Users/gwk/Desktop/Thesis Figures/DifferentialGeneExpression')
+
+#### Specific functions to use later in the analysis 
+extractGenes <- function(df, term_ = 'oxidoreductase complex'){
+  go_term <- df |>
+    as.data.frame() |>
+    filter(Description == term_) |>
+    select(core_enrichment) |>
+    unlist() |>
+    strsplit('/') |>
+    unlist() |>
+    as.vector() 
+  return(go_term) 
+}
+
+sigGenes <- function(dataFrame, geneList) {
+  t1 <- dataFrame[geneList,] |>
+    filter(padj < 0.05) |>
+    select(c(7,2,5))
+  
+  return(t1)
+}
 
 ## Load the datasets to be analysed here (these are dge files)
 mutExposed <-read.csv('mutant_mutant/mnExposuredge.csv', row.names = 1)
@@ -22,26 +43,32 @@ mutUnexpo <- read.csv('mutantEffects/mutunexposedwtUnexposed.csv', row.names = 1
 mutUnexpo <- mutUnexpo[!grepl('si:', rownames(mutUnexpo)), ]
 mutUnexpo <- mutUnexpo[!grepl('zgc:', rownames(mutUnexpo)), ]
 
-wtExposed <- read.csv('mnExposureEffect/mnExposuredge.csv', row.names = 1)
+wtExposed <- read.csv('WildtypeExposed/WTExposed_vs_WTUnexposed.csv', row.names = 1)
 ## Filter out the un-annotated genes
 wtExposed <- wtExposed[!grepl('si:', rownames(wtExposed)), ]
 wtExposed <- wtExposed[!grepl('zgc:', rownames(wtExposed)), ]
 
-## Create the table needed for this work
-wtExposed |>
+ge <- c('cldn15la', 'vil1', 'ace2', 'slc15a1b', 'cyp3a65', 'pla2g12b', 'tcnl', 'guca2b')
+ge <- c('fosab', 'fosl1a', 'egr1')
+ge <- c('myom','myhz','tnnt3b','desma','actc1b','ryr3', 'ckmb', 'ckmt2b','atp2a1')
+
+wtExposed[ge,]
+
+ ## Create the table needed for this work
+wtExposed|>
   as.data.frame() |>
   filter(padj < 0.05 & log2FoldChange > 0) |>
   select(c(7,2,5,6)) |>
-  mutate('log2FoldChange'=round(log2FoldChange,2),'padj' = round(padj,2)) |>
+  mutate('log2FoldChange'=round(log2FoldChange,2), 'padj' = scientific(padj, digits=3)) |>
   arrange(desc(log2FoldChange)) |>
   head(10) |>
   gt(auto_align = T) |>
-  gt::gtsave(filename = "./Tables/Top10DGE_DOWNgenesWtExpxp.rtf")
+  gt::gtsave(filename = "../Tables/Top10DGE_UPWtExpxp.rtf")
 ## Perform GSEA analysis here 
 mutExposed_gsea <- simplify(rungseondata(geneList = creategenelist(mutExposed)),
          cutoff = 0.5, by = 'p.adjust', measure = 'Wang')
 
-write_tsv(mutExposed, paste0(output_dir,'/mutExposedGOTERMS.tsv'))
+#write_tsv(mutExposed, paste0(output_dir,'/mutExposedGOTERMS.tsv'))
 
 mutUnexo_gsea <- simplify(rungseondata(geneList = creategenelist(mutUnexpo)),
          cutoff = 0.5, by = 'p.adjust', measure = 'Wang')
@@ -49,7 +76,7 @@ mutUnexo_gsea <- simplify(rungseondata(geneList = creategenelist(mutUnexpo)),
 wtExposed_gsea <- simplify(rungseondata(geneList = creategenelist(wtExposed)),
          cutoff = 0.5, by = 'p.adjust', measure = 'Wang')
 
-mutExposed_gsea |>
+wtExposed_gsea |>
   as.data.frame() |>
   select(c(1,3,4,6,8)) |>
   mutate('NES'=round(NES,2),'p.adjust' = round(p.adjust,3)) |>
@@ -239,21 +266,39 @@ for (item in 1:nrow(mutUnexo_gsea)){
 # Use the `Gene Set` param for the index in the title, and as the value for geneSetId
 gseaplot(mutExposed_gsea, by = "all", title = mutExposed_gsea$Description[2], geneSetID = 2)
 
+
+er_proteostasis <- c('oxidoreductase complex','endoplasmic reticulum lumen',
+                     'proteasome complex','protein maturation','protein folding',
+                     'endopeptidase inhibitor activity','cytosolic ribosome',
+                     'structural constituent of ribosome')
+
+synaptic_terms <- c('postsynapse','synapse organization','axon guidance',
+                    'chemical synaptic transmission')
+
+membranePotential <- c('regulation of membrane potential',
+                       'voltage-gated monoatomic cation channel activity'
+                       )
+
 ## Poolout the genes that contributing to a GO Term 
-go_term <- mutExposed_gsea |>
-  as.data.frame() |>
-  filter(Description == 'protein folding') |>
-  select(core_enrichment) |>
-  unlist() |>
-  strsplit('/') |>
-  unlist() |>
-  as.vector() 
+extractGenes <- function(df, term_ = 'oxidoreductase complex'){
+  go_term <- df |>
+    as.data.frame() |>
+    filter(Description == term_) |>
+    select(core_enrichment) |>
+    unlist() |>
+    strsplit('/') |>
+    unlist() |>
+    as.vector() 
+ return(go_term) 
+}
+
 
 # ## Selected gene lists to explore
 erProteostasis <- c('canx','calr3a','p4hb','pdia4','txndc5','fkbp9','hsp90b1',
                      'hspa5','hsp90aa1.1','cct2')
 # caBuffer <- c('calub','calua','calr3a','hyou1','p4hb','pdia4','txndc5','casq1b',
 #               'casq2','hspa5','pdia3')
+
 # amp <- c('gria2b','gria3a','gria3b','gria4a','grin1a','grin1b','grin2aa',
 #          'grin2bb','grik1a','grid1b')
 # aux <- c('cacng2a', 'cacng3b', 'cacng4b', 'cacng5b')
@@ -267,9 +312,19 @@ erProteostasis <- c('canx','calr3a','p4hb','pdia4','txndc5','fkbp9','hsp90b1',
 #              'scg2a','si:dkey-175g6.2')
 # psdGenes <- c('cadps2', 'cadpsa', 'cadpsb', 'baiap3')
 
-t1 <- mutExposed[go_term,] |>
-  filter(padj < 0.05)
-  select(c(7,2,5)) |>
+sigGenes <- function(dataFrame, geneList) {
+  t1 <- dataFrame[geneList,] |>
+    filter(padj < 0.05) |>
+  select(c(7,2,5))
+  
+  return(t1)
+}
+
+sigGenes(mutExposed, extractGenes(mutExposed_gsea,term_ = 'endoplasmic reticulum lumen'))
+
+t1 <- mutExposed[extractGenes(mutExposed_gsea,term_ = 'postsynapse'),] |>
+  filter(padj < 0.05) |>
+  select(c(7,2,5)) 
   mutate('log2FoldChange' = round(log2FoldChange, 2), 
          padj = round(padj, 3)) |>
   rename('log2FoldChange'='mutExposed') 
@@ -286,12 +341,27 @@ t3 <- mutUnexpo[erProteostasis,] |>
          padj = round(padj, 3)) |>
   rename('log2FoldChange' = 'MutantionOnly')
 
-cbind(t1, t2,t3) |>
-  select(c(1,2,5,8)) |>
-  rename(symbols = 'Genes') |>
-  arrange(Genes) |>
+rbind(t1, sigGenes(mutExposed, 
+                   extractGenes(mutExposed_gsea,term_ = 'synapse organization')),
+      sigGenes(mutExposed, 
+               extractGenes(mutExposed_gsea,term_ = 'axon guidance')),
+      sigGenes(mutExposed, 
+               extractGenes(mutExposed_gsea,term_ = 'chemical synaptic transmission')),
+      sigGenes(mutExposed,
+               extractGenes(mutExposed_gsea,term_ = 'regulation of membrane potential')),
+      sigGenes(mutExposed,
+               extractGenes(mutExposed_gsea,term_ = 'voltage-gated monoatomic cation channel activity'))) |>
+      # sigGenes(mutExposed, 
+      #          extractGenes(mutExposed_gsea,term_ = 'cytosolic ribosome')),
+      # sigGenes(mutExposed, 
+      #          extractGenes(mutExposed_gsea,term_ = 'structural constituent of ribosome'))) |>
+  rename(symbols = 'Genes', log2FoldChange = 'log2FC') |>
+  mutate('log2FC'= round(log2FC,2), 
+         'padj' = scientific(padj, digits = 3)) |>
+  distinct() |>
+  arrange(desc(log2FC)) |>
   gt(auto_align = F) |>
-  gt::gtsave(filename = "./subcellularTables/endoplasmic reticulum lumen.rtf")
+  gt::gtsave(filename = "./Tables/ERMitochondrial_function.rtf")
 
 # mutExposed |>
 #   filter(padj < 0.05 & log2FoldChange > 0) |>

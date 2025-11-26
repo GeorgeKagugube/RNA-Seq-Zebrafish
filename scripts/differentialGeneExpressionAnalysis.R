@@ -9,7 +9,7 @@ setwd('/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/data'
 
 # This is the output folder for the final analysis
 output_dir = '/Users/gwk/Desktop/Thesis Figures/DifferentialGeneExpression/'
-output_dir = '/Users/gwk/Desktop/Thesis Figures/'
+#output_dir = '/Users/gwk/Desktop/Thesis Figures/'
 
 ## Source user defined files containing some useful functions here
 source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scripts/functionsneededforanalysis.R")
@@ -35,10 +35,10 @@ mutcountmtx <- countMatrix |>
 keep <- rowSums(countMatrix > 10) >= 6
 countMatrix <- countMatrix[keep,]
 
-keep_wt <- rowSums(wtcountmtx > 10) >= 3
+keep_wt <- rowSums(wtcountmtx > 10) >= 6
 wtcountmtx <- wtcountmtx[keep_wt,]
 
-keep_mut <- rowSums(mutcountmtx > 10) >= 3
+keep_mut <- rowSums(mutcountmtx > 10) >= 6
 mutcountmtx <- mutcountmtx[keep_mut,]
 
 # Build a DESeq2 object here. The count data is given as a metrix, column names
@@ -70,10 +70,10 @@ ddsmut$Group <- relevel(ddsmut$Group, ref = 'mut_unexposed')
 ## dds object and in some cases you need the sample_id as the function inputs expect
 # ## check out the individual functions below in the environmnetal space
 # ## calculate the pca values here
-# vsd <- vst(ddsmut)
-# 
-# ## Plot visualise the PCA
-# plotPCA(vsd, intgroup="Group")
+vsd <- vst(ddswt)
+
+## Plot visualise the PCA
+plotPCA(vsd, intgroup="Group")
 # 
 # ## Normalise the count data
 # all_norm_data <- normalisation_func(dds)
@@ -106,9 +106,10 @@ ddsmut <- DESeq(ddsmut)
 ddswt <- DESeq(ddswt)
 
 
-mutantExposed |>
+mutantUnexposed |>
   as.data.frame() |>
   filter(padj < 0.05) |>
+  arrange(desc(log2FoldChange)) |>
   nrow()
 ## Extract Group comparisons here
 ## ========================= Mutant,Exposed vs Mutant unexposed ===============
@@ -119,15 +120,20 @@ mutantExposed <- results(ddsmut, name = "Group_mut_exposed_vs_mut_unexposed")
 mutantExposed <- lfcShrink(ddsmut, coef = 2, type = 'apeglm')
 mutantExposed <- addDirectionlabel(mutantExposed)
 mutantExposed <- annot_data(mutantExposed)
-summary(mutantExposed)
+head(mutantExposed)
 # Remove all genes that are not annotated here
 mutantExposed <- mutantExposed[!grepl('LOC', rownames(mutantExposed)), ]
+mutantExposed <- mutantExposed[!grepl('si:', rownames(mutantExposed)), ]
+mutantExposed <- mutantExposed[!grepl('zgc:', rownames(mutantExposed)), ]
+mutantExposed <- mutantExposed[!grepl('wu:', rownames(mutantExposed)), ]
 # visualise the data using a volcano plot here
-volcanoPlot(mutantExposed)
+volcanoPlot(mutantExposed, xlimlimit = c(-2.5,3.5),
+            ylimlimit = c(0,15))
 
 ## Export the the DGE here
 write.csv(mutantExposed,
-          file = paste0(output_dir,'/MutantExposed/mutExposed_vs_mutUnexposed.csv'))
+          file = paste0(output_dir,
+                        'CleanAnalysis_without_noise/mutantExposed/mutExposed_dge.csv'))
 ## =======================Wild type Exposed vs Unexposed =======================
 resWT <- results(ddswt)
 resWT
@@ -140,12 +146,17 @@ WTExposed <- annot_data(WTExposed)
 summary(WTExposed)
 # Remove all genes that are not annotated here
 WTExposed <- WTExposed[!grepl('LOC', rownames(WTExposed)), ]
+WTExposed <- WTExposed[!grepl('si:', rownames(WTExposed)), ]
+WTExposed <- WTExposed[!grepl('zgc:', rownames(WTExposed)), ]
+WTExposed <- WTExposed[!grepl('wu:', rownames(WTExposed)), ]
 # visualise the data using a volcano plot here
-volcanoPlot(WTExposed)
+volcanoPlot(WTExposed,
+            xlimlimit = c(-1, 5))
 
 ## Export the the DGE here
 write.csv(WTExposed,
-          file = paste0(output_dir,'/WildtypeExposed/WTExposed_vs_WTUnexposed.csv'))
+          file = paste0(output_dir,
+                        'CleanAnalysis_without_noise/wtExposed/wtExposed_dge.csv'))
 
 ## ============= Combined data analysis for interactions and mutant effect =====
 res <- results(dds)
@@ -158,181 +169,22 @@ mutantUnexposed <- results(dds, name = "Group_mut_unexposed_vs_wt_unexposed")
 mutantUnexposed <- lfcShrink(dds = dds, coef = 3, type = 'apeglm')
 mutantUnexposed <- addDirectionlabel(mutantUnexposed)
 mutantUnexposed <- annot_data(mutantUnexposed)
-summary(mutantUnexposed)
+head(mutantUnexposed)
+# Remove all genes that are not annotated here
+mutantUnexposed <- mutantUnexposed[!grepl('LOC', rownames(mutantUnexposed)), ]
+mutantUnexposed <- mutantUnexposed[!grepl('si:', rownames(mutantUnexposed)), ]
+mutantUnexposed <- mutantUnexposed[!grepl('zgc:', rownames(mutantUnexposed)), ]
+mutantUnexposed <- mutantUnexposed[!grepl('wu:', rownames(mutantUnexposed)), ]
 
 ## Remove all genes that are not annotated in the reference genome
-volcanoPlot(mutantUnexposed)
+volcanoPlot(mutantUnexposed,
+            xlimlimit = c(-5,8),
+            ylimlimit = c(0, 20))
 
 ## Export the datset here
 write.csv(mutantUnexposed,
-          file = paste0(output_dir,'/MutantUnexposed/mutUnexposed_vs_wtUnexposed.csv'))
+          file = paste0(output_dir,
+                        'CleanAnalysis_without_noise/MutantUnexposed/mutUnexposed_dge.csv'))
 
 
-## ===================== Interaction between genotype and exposure =============
-interaction <- results(dds, name = "Group_mut_exposed_vs_wt_unexposed")
-interaction <- lfcShrink(dds = dds, coef = 4, type = 'apeglm')
-interaction <- addDirectionlabel(interaction)
-interaction <- annot_data(interaction)
-summary(interaction)
 
-## Remove all genes that are not annotated in the reference genome
-volcanoPlot(interaction)
-
-## Export the datset here
-write.csv(interaction,
-          file = paste0(output_dir,'/Interactions/mutExposed_vs_mutUnexposed.csv'))
-
-
-## ========================= Extracting key genes from each dataset ============
-significant_genes<- mutantExposed %>%
-  as.data.frame() %>%
-  #dplyr::filter(padj <=0.01, abs(log2FoldChange) >= 2) %>% 
-  dplyr::filter(padj <=0.01) %>% 
-  rownames()
-
-
-significant_genes
-## ====================== Over representation analysis =======================
-significant_genes_map<- clusterProfiler::bitr(geneID = significant_genes,
-                                              fromType="SYMBOL", toType="ENTREZID",
-                                              OrgDb="org.Dr.eg.db")
-
-head(significant_genes_map)
-
-## =============== Prepare background gene list ================================
-## background genes are genes that are detected in the RNAseq experiment 
-background_genes<- mutantExposed %>% 
-  as.data.frame() %>% 
-  filter(baseMean != 0) %>%
-  tibble::rownames_to_column(var = "gene") %>%
-  pull(gene)
-
-background_genes_map<- bitr(geneID = background_genes, 
-                            fromType="SYMBOL", 
-                            toType="ENTREZID",
-                            OrgDb="org.Dr.eg.db")
-
-## ========================== GO TERM ANALYSIS =================================
-ego <- enrichGO(gene          = significant_genes_map$ENTREZID,
-                universe      = background_genes_map$ENTREZID,
-                OrgDb         = org.Dr.eg.db,
-                ont           = "BP",
-                pAdjustMethod = "BH",
-                pvalueCutoff  = 0.01,
-                qvalueCutoff  = 0.05,
-                readable      = TRUE)
-head(ego)
-
-## ================ Visualise the genes here ============
-barplot(ego, showCategory=10)
-dotplot(ego)
-
-
-### =================== MsigDB Hallmark gene sets ===============
-# install.packages("msigdbr")
-library(msigdbr)
-
-m_df <- msigdbr(species = "zebrafish")
-head(m_df)
-
-## ========= 
-# Note, the new version of msigdbr changed the arguments: category vs collection
-# welcome to Bioinformatics!..
-
-m_t2g <- msigdbr(species = "zebrafish", collection = "C4") %>% 
-  dplyr::select(gs_name, ncbi_gene)
-
-
-head(m_t2g)
-
-## ===========
-em <- enricher(significant_genes_map$ENTREZID, TERM2GENE=m_t2g, 
-               universe = background_genes_map$ENTREZID )
-head(em)
-
-df = as.data.frame(mutation_specific_changes)
-# Filter significant genes
-sig_genes <- df %>%
-  filter(padj < 0.05 & diffExpression != "NO")
-
-# Define top genes
-top10_up <- sig_genes %>%
-  arrange(desc(log2FoldChange)) %>%
-  head(10)
-
-top20_up <- sig_genes %>%
-  arrange(desc(log2FoldChange)) %>%
-  head(20)
-
-ggplot(df, aes(x = log2FoldChange, y = -log10(padj), color = diffExpression)) +
-  geom_point(alpha = 0.7) +
-  scale_color_manual(values = c("NS" = "grey", "Upregulated" = "firebrick", "Downregulated" = "steelblue")) +
-  geom_text_repel(data = top10_up, aes(label = symbols), size = 3, box.padding = 0.5, max.overlaps = 10) +
-  labs(title = "Figure 3.1: Volcano Plot",
-       x = "log2 Fold Change",
-       y = "-log10 Adjusted P-value") +
-  theme_minimal()
-
-ggplot(top10_up, aes(x = reorder(symbols, log2FoldChange), y = log2FoldChange)) +
-  geom_col(fill = "firebrick") +
-  coord_flip() +
-  labs(title = "Figure 3.2: Top 10 Upregulated Genes",
-       x = "Gene",
-       y = "log2 Fold Change") +
-  theme_minimal()
-
-mat <- matrix(top20_up$log2FoldChange, nrow = 1)
-colnames(mat) <- top20_up$symbols
-rownames(mat) <- "log2FC"
-
-pheatmap(mat,
-         cluster_rows = FALSE,
-         cluster_cols = TRUE,
-         main = "Figure 3.3: Heatmap of Top 20 Upregulated Genes",
-         color = colorRampPalette(c("navy", "white", "firebrick3"))(50))
-
-
-## Venn Diagram 
-set1 = sig_gene_names(as.data.frame(mutantExposed))
-set2 <- sig_gene_names(WTExposed)
-set3 <- sig_gene_names(mutantUnexposed)
-set4 <- sig_gene_names(interaction)
-dgset <- list('mutantsExposed' = set1,
-              'WTexposed' = set2,
-              'MutantUnexposed' = set3,
-              'Interaction' = set4
-              )
-
-venPlot(dgeset = dgset)
-
-dge_mn <- interaction |>
-  as.data.frame() |>
-  filter(padj < 0.05) |>
-  arrange(desc(log2FoldChange))
-
-write.csv(dge_mn,
-          file = paste0(output_dir,'/signifcant_genes/interaction_dge.csv'))
-
-## Generate a heatmap here 
-signs <- sig_gene(WTExposed)
-wthmap <- data_heatmap(as.data.frame(wt_norm_data),wt_sample_info)
-figure_heatmap(wthmap, signs)
-
-## Generate a heatmap here 
-signs <- sig_gene(mutantExposed)
-hmap <- data_heatmap(as.data.frame(mut_norm_data),mut_sample_info)
-figure_heatmap(hmap, signs)
-
-## Generate a heatmap here 
-signs <- sig_gene(treatment)
-hmap <- data_heatmap(as.data.frame(wt_norm_data),wt_sample_info)
-figure_heatmap(hmap, signs)
-
-## Generate a heatmap here 
-signs <- sig_gene(treatment)
-hmap <- data_heatmap(as.data.frame(wt_norm_data),wt_sample_info)
-figure_heatmap(hmap, signs)
-
-mutation_specific_changes |>
-  as.data.frame() |>
-  filter(padj <= 0.05)
