@@ -12,9 +12,11 @@ End-to-end bulk RNA-seq pipeline from experimental design, RNA sample collection
 
 ## ✨ Features
 
-- ✅ First key feature (e.g. “End-to-end QC → alignment → DE → plots”)
-- ✅ Second key feature
-- ✅ Third key feature
+- ✅ DE(allGenes Table, significant genes) →VolcanoPplot->
+![alt VolcanoPlot](./images/VolcanoPlot.jpeg)
+- ✅ Gene Set Enrichment Analysis (GO-Analysis) and Dot Plot visualisation
+![alt](./images/MutExposedsupressed_pathways.jpeg)
+- ✅ KEGG Pathways Analysis and Visualisation
 
 ---
 
@@ -30,5 +32,9 @@ PROJECT_NAME/
 ├─ notebooks/         # Exploratory analyses / reports (Rmd, qmd, ipynb)
 ├─ config/            # Config files (YAML/JSON) for parameters, paths, etc.
 ├─ env/               # Conda environment or requirements files
-└─ README.md          # This f
+└─ README.md          # Thisile
+
+---
+# Example of Plots
+
 
