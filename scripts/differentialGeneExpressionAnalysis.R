@@ -1,15 +1,50 @@
-## Clear the environmental space here to start affresh 
+#Title: Differential expression analysis for Mn-induced neurotoxicity
+# Description: Takes in a counts matrix or raw outputputs from STAR aligner
+#               . sample metadata, runs DESeq2 and outputs results + volcanoPlot
+# Author: George W Kagugube
+# Date: 2023 - 2024
+# Usage:
+#       currently run within rstudio or R
+###############################################################################
+## Clear the environmental space here to start afresh 
 ## Clear environmental space
 rm(list = ls())
 
+## Load the helper functions for this analysis
+suppressPackageStartupMessages({
+  library(optparse)
+  source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scripts/functionsneededforanalysis.R")
+})
+
+options(
+  stringAsFactors = FALSE,
+  scipen = 999
+)
+
+## Set seed for reproducibility here
 set.seed(101)
 
+###############################################################################
+## Setup command line arguments (not needed to run this analysis but can be integrated)
+options_list <- list(
+  make_option(c('-c', '--counts', type = 'character',help = 'Counts file (tsv)')),
+  make_option(c("-m", "--meta"),    type = "character", help = "Sample metadata (TSV)"),
+  make_option(c("-o", "--outdir"),  type = "character", help = "Output directory")
+)
+
+opt <- parse_args(OptionParser(option_list = option_list))
+
+if (is.null(opt$counts) || is.null(opt$meta) || is.null(opt$outdir)) {
+  stop("Missing required arguments. Run with --help for usage.", call. = FALSE)
+}
+
+###############################################################################
 ## Set the directory with the expression datasets here 
 setwd('/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/data')
 
 # This is the output folder for the final analysis
-output_dir = '/Users/gwk/Desktop/Thesis Figures/DifferentialGeneExpression/'
-#output_dir = '/Users/gwk/Desktop/Thesis Figures/'
+#output_dir = '/Users/gwk/Desktop/Thesis Figures/DifferentialGeneExpression/'
+output_dir = '/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/data'
 
 ## Source user defined files containing some useful functions here
 source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scripts/functionsneededforanalysis.R")
@@ -17,7 +52,7 @@ source("/Users/gwk/Desktop/Bioinformatics/bulk-rnaseq-zebrafish-mouse-human/scri
 ## Load the datasets to be analysed here 
 countMatrix <- read.csv('raw_count_matrix.csv', row.names = 1)
 samples <- read.csv("./samplieinformation.csv", row.names = 1)
-
+###############################################################################
 ## Split the datasets into WT and Home
 wt_sample_info <- samples |>
   filter(Genotype == 'wt')
@@ -40,7 +75,7 @@ wtcountmtx <- wtcountmtx[keep_wt,]
 
 keep_mut <- rowSums(mutcountmtx > 10) >= 6
 mutcountmtx <- mutcountmtx[keep_mut,]
-
+###############################################################################
 # Build a DESeq2 object here. The count data is given as a metrix, column names
 # are the samples and the rownames are the Ensemble gene ids. This is important
 # The design contains what makes up the model (negatve bionimial model in this case)
@@ -57,7 +92,7 @@ ddswt <- DESeqDataSetFromMatrix(countData = as.matrix(wtcountmtx),
 ddsmut <- DESeqDataSetFromMatrix(countData = as.matrix(mutcountmtx),
                                 colData = mut_sample_info,
                                 design = ~ Group)
-
+###############################################################################
 ## Relevel the conditions here
 dds$Group <- relevel(dds$Group, ref = 'wt_unexposed')
 #dds$Group <- relevel(dds$Group, ref = 'mut_unexposed')
@@ -65,7 +100,7 @@ dds$Group <- relevel(dds$Group, ref = 'wt_unexposed')
 # Relevel the Wild type data here so the unexposed is the reference group
 ddswt$Group <- relevel(ddswt$Group, ref = 'wt_unexposed')
 ddsmut$Group <- relevel(ddsmut$Group, ref = 'mut_unexposed')
-
+###############################################################################
 ## Perform some quality checks here. Use the developed function here. Input is the
 ## dds object and in some cases you need the sample_id as the function inputs expect
 # ## check out the individual functions below in the environmnetal space
@@ -99,12 +134,12 @@ plotPCA(vsd, intgroup="Group")
 #     axis.text.y = element_text(angle = 90, vjust = 0.5),
 #     axis.title.y = element_text(size = 15, vjust = 0.5)
 #   )
-#   
+###############################################################################  
 # ## Perform differenPC10## Perform differential gene expression analysis here
 dds <- DESeq(dds)
 ddsmut <- DESeq(ddsmut)
 ddswt <- DESeq(ddswt)
-
+###############################################################################
 
 mutantUnexposed |>
   as.data.frame() |>
@@ -134,6 +169,7 @@ volcanoPlot(mutantExposed, xlimlimit = c(-2.5,3.5),
 write.csv(mutantExposed,
           file = paste0(output_dir,
                         'CleanAnalysis_without_noise/mutantExposed/mutExposed_dge.csv'))
+###############################################################################
 ## =======================Wild type Exposed vs Unexposed =======================
 resWT <- results(ddswt)
 resWT
@@ -157,7 +193,7 @@ volcanoPlot(WTExposed,
 write.csv(WTExposed,
           file = paste0(output_dir,
                         'CleanAnalysis_without_noise/wtExposed/wtExposed_dge.csv'))
-
+###############################################################################
 ## ============= Combined data analysis for interactions and mutant effect =====
 res <- results(dds)
 res
@@ -186,5 +222,5 @@ write.csv(mutantUnexposed,
           file = paste0(output_dir,
                         'CleanAnalysis_without_noise/MutantUnexposed/mutUnexposed_dge.csv'))
 
-
+###############################################################################
 
